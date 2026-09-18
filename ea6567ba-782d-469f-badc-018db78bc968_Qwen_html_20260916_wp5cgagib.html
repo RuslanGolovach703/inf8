@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Измерение звука — Эквалайзер</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    color: #fff;
+    min-height: 100vh;
+    padding: 20px;
+    line-height: 1.6;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 {
+    text-align: center;
+    font-size: 2.4em;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 10px rgba(255,213,79,0.4);
+  }
+  .subtitle { text-align: center; opacity: 0.85; margin-bottom: 30px; }
+  .card {
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 25px 30px;
+    margin-bottom: 25px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  h2 {
+    color: #ffd54f;
+    margin-bottom: 15px;
+    border-bottom: 2px solid rgba(255,213,79,0.4);
+    padding-bottom: 8px;
+  }
+  h3 { color: #81d4fa; margin: 15px 0 8px; }
+  p { margin-bottom: 10px; }
+  ul, ol { margin: 10px 0 10px 25px; }
+  li { margin-bottom: 6px; }
+  .formula {
+    background: rgba(0,0,0,0.35);
+    padding: 12px 18px;
+    border-radius: 10px;
+    margin: 12px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 1.15em;
+    text-align: center;
+    border-left: 4px solid #ffd54f;
+  }
+  .formula span { color: #ffd54f; font-weight: bold; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 10px;
+  }
+  @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+  .def {
+    background: rgba(255,255,255,0.08);
+    padding: 10px 14px;
+    border-radius: 8px;
+    border-left: 3px solid #81d4fa;
+  }
+  .def b { color: #ffd54f; }
+
+  /* Интерактив */
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 700px) { .controls { grid-template-columns: 1fr; } }
+  .slider-group {
+    background: rgba(0,0,0,0.3);
+    padding: 14px 18px;
+    border-radius: 10px;
+  }
+  .slider-group label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-weight: bold;
+  }
+  .slider-group label span.val {
+    color: #ffd54f;
+    font-family: 'Courier New', monospace;
+  }
+  input[type=range] {
+    width: 100%;
+    height: 6px;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.2);
+    outline: none;
+    -webkit-appearance: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: #ffd54f;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(255,213,79,0.9);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: #ffd54f;
+    cursor: pointer;
+    border: none;
+  }
+
+  /* Эквалайзер */
+  .eq-wrap {
+    background: #05050a;
+    border-radius: 14px;
+    padding: 20px;
+    border: 1px solid rgba(255,213,79,0.2);
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.8), 0 0 30px rgba(255,213,79,0.1);
+  }
+  .eq-title {
+    text-align: center;
+    color: #ffd54f;
+    font-size: 1.1em;
+    letter-spacing: 3px;
+    margin-bottom: 12px;
+    text-shadow: 0 0 8px rgba(255,213,79,0.6);
+  }
+  canvas {
+    width: 100%;
+    height: 320px;
+    display: block;
+    border-radius: 8px;
+    background: radial-gradient(ellipse at center, #0a0a1a 0%, #000 100%);
+  }
+
+  .results {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 18px;
+  }
+  .result-box {
+    background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+    padding: 14px;
+    border-radius: 10px;
+    text-align: center;
+  }
+  .result-box.blue { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+  .result-box.green { background: linear-gradient(135deg, #43e97b, #38f9d7); color:#0d1b2a;}
+  .result-box.purple { background: linear-gradient(135deg, #a18cd1, #fbc2eb); color:#0d1b2a;}
+  .result-box .label { font-size: 0.9em; opacity: 0.9; }
+  .result-box .value { font-size: 1.6em; font-weight: bold; margin-top: 4px; }
+  .example {
+    background: rgba(67, 233, 123, 0.15);
+    border-left: 4px solid #43e97b;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-top: 12px;
+  }
+  .hint { font-size: 0.9em; opacity: 0.8; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>🎛️ Измерение звука</h1>
+  <p class="subtitle">Информатика · 7 класс · Эквалайзер</p>
+
+  <!-- ТЕОРИЯ -->
+  <div class="card">
+    <h2>📖 Теоретическая часть</h2>
+    <p><b>Звук</b> — это звуковая волна, представляющая собой колебания воздуха. Чтобы компьютер мог хранить и обрабатывать звук, его нужно <b>оцифровать</b> — превратить непрерывную волну в последовательность чисел.</p>
+
+    <h3>Как происходит оцифровка звука?</h3>
+    <ol>
+      <li><b>Дискретизация по времени</b> — непрерывный сигнал разбивается на отдельные отсчёты через равные промежутки времени. Частота, с которой берутся отсчёты, называется <b>частотой дискретизации d</b> (измеряется в герцах, Гц).</li>
+      <li><b>Квантование по уровню</b> — каждый отсчёт округляется до ближайшего уровня из конечного набора. Количество уровней <b>N</b> зависит от <b>глубины кодирования i</b> (числа бит на один отсчёт).</li>
+    </ol>
+
+    <div class="grid">
+      <div class="def"><b>Глубина кодирования (i)</b> — количество бит, отводимых на хранение одного отсчёта звука.</div>
+      <div class="def"><b>Частота дискретизации (d)</b> — количество отсчётов звука в секунду (обычно 8000–48000 Гц).</div>
+      <div class="def"><b>Количество каналов (k)</b> — 1 (моно) или 2 (стерео).</div>
+      <div class="def"><b>Время звучания (t)</b> — длительность звукового файла в секундах.</div>
+    </div>
+
+    <h3>Основные формулы</h3>
+    <div class="formula"><span>N</span> = 2<sup><span>i</span></sup></div>
+    <p class="hint">N — количество возможных уровней громкости; i — глубина кодирования в битах.</p>
+
+    <div class="formula"><span>I</span> = <span>i</span> · <span>k</span> · <span>d</span> · <span>t</span></div>
+    <p class="hint">I — информационный объём звукового файла (в битах). Чтобы получить байты, делим на 8.</p>
+
+    <div class="example">
+      <b>📘 Пример.</b> Звучание длительностью 10 секунд, частота дискретизации 22050 Гц, глубина кодирования 16 бит, стерео (k=2).<br>
+      I = 16 · 2 · 22050 · 10 = 7 056 000 бит ≈ 882 000 байт ≈ <b>861 Кбайт</b>.
+    </div>
+  </div>
+
+  <!-- ЭКВАЛАЙЗЕР -->
+  <div class="card">
+    <h2>🎚️ Интерактивный эквалайзер</h2>
+    <p>Двигайте ползунки и наблюдайте, как изменяется звуковой спектр и размер файла.</p>
+
+    <div class="controls">
+      <div class="slider-group">
+        <label>Глубина кодирования i (бит): <span class="val" id="v_i">16</span></label>
+        <input type="range" id="s_i" min="2" max="16" value="16" step="1">
+      </div>
+      <div class="slider-group">
+        <label>Количество каналов k: <span class="val" id="v_k">2 (стерео)</span></label>
+        <input type="range" id="s_k" min="1" max="2" value="2" step="1">
+      </div>
+      <div class="slider-group">
+        <label>Частота дискретизации d (Гц): <span class="val" id="v_d">22050</span></label>
+        <input type="range" id="s_d" min="4000" max="48000" value="22050" step="1000">
+      </div>
+      <div class="slider-group">
+        <label>Время t (сек): <span class="val" id="v_t">10</span></label>
+        <input type="range" id="s_t" min="1" max="60" value="10" step="1">
+      </div>
+    </div>
+
+    <div class="eq-wrap">
+      <div class="eq-title">★ SPECTRUM ANALYZER ★</div>
+      <canvas id="eq" width="1000" height="320"></canvas>
+    </div>
+
+    <div class="results">
+      <div class="result-box">
+        <div class="label">Уровней квантования N</div>
+        <div class="value" id="r_N">65536</div>
+      </div>
+      <div class="result-box blue">
+        <div class="label">Объём I (бит)</div>
+        <div class="value" id="r_I">7 056 000</div>
+      </div>
+      <div class="result-box green">
+        <div class="label">Объём I (Кбайт)</div>
+        <div class="value" id="r_Ikb">861</div>
+      </div>
+      <div class="result-box purple">
+        <div class="label">Объём I (Мбайт)</div>
+        <div class="value" id="r_Imb">0.84</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>💡 Что показывает эквалайзер?</h2>
+    <ul>
+      <li><b>Вертикальные полоски</b> — частотные диапазоны звука. Чем выше столбик, тем громче звук в этой полосе частот.</li>
+      <li><b>Количество полос</b> зависит от <b>частоты дискретизации d</b>: больше d — больше полос, тем точнее передаётся спектр.</li>
+      <li><b>«Ступенчатость» высот</b> зависит от <b>глубины кодирования i</b>: при малом i высоты полос квантуются до N=2<sup>i</sup> уровней.</li>
+      <li><b>Два эквалайзера</b> — стереозвук (k=2): левый (L) и правый (R) каналы. При k=1 — один общий (моно).</li>
+      <li><b>Цвет полос</b> — от зелёного (тихо) через жёлтый к красному (громко), как в настоящем аудио-эквалайзере.</li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+  const sI = document.getElementById('s_i');
+  const sK = document.getElementById('s_k');
+  const sD = document.getElementById('s_d');
+  const sT = document.getElementById('s_t');
+  const vI = document.getElementById('v_i');
+  const vK = document.getElementById('v_k');
+  const vD = document.getElementById('v_d');
+  const vT = document.getElementById('v_t');
+  const rN = document.getElementById('r_N');
+  const rI = document.getElementById('r_I');
+  const rIkb = document.getElementById('r_Ikb');
+  const rImb = document.getElementById('r_Imb');
+  const canvas = document.getElementById('eq');
+  const ctx = canvas.getContext('2d');
+
+  function fmt(n) { return n.toLocaleString('ru-RU'); }
+
+  // Плавные значения высот для анимации (чтобы полоски не прыгали)
+  let smoothL = [];
+  let smoothR = [];
+
+  function updateLabels() {
+    const i = +sI.value;
+    const k = +sK.value;
+    const d = +sD.value;
+    const t = +sT.value;
+
+    vI.textContent = i;
+    vK.textContent = k + (k === 1 ? ' (моно)' : ' (стерео)');
+    vD.textContent = fmt(d);
+    vT.textContent = t;
+
+    const N = Math.pow(2, i);
+    const I = i * k * d * t;
+    const Ikb = I / 8 / 1024;
+    const Imb = Ikb / 1024;
+
+    rN.textContent = fmt(N);
+    rI.textContent = fmt(I);
+    rIkb.textContent = Ikb.toFixed(1);
+    rImb.textContent = Imb.toFixed(2);
+  }
+
+  // Цвет полоски по высоте (0..1): зелёный → жёлтый → красный
+  function barColor(ratio) {
+    // ratio: 0..1
+    let r, g, b;
+    if (ratio < 0.5) {
+      // зелёный → жёлтый
+      const t = ratio / 0.5;
+      r = Math.floor(80 + 175 * t);
+      g = 230;
+      b = 60;
+    } else if (ratio < 0.85) {
+      // жёлтый → оранжевый
+      const t = (ratio - 0.5) / 0.35;
+      r = 255;
+      g = Math.floor(230 - 130 * t);
+      b = 0;
+    } else {
+      // оранжевый → красный
+      const t = (ratio - 0.85) / 0.15;
+      r = 255;
+      g = Math.floor(100 - 80 * t);
+      b = Math.floor(40 * t);
+    }
+    return `rgb(${r},${g},${b})`;
+  }
+
+  // Рисование одного эквалайзера
+  function drawEQ(x0, y0, w, h, bars, peaks, label, color) {
+    // Фон-рамка
+    ctx.save();
+
+    // Подпись канала
+    ctx.fillStyle = color;
+    ctx.font = 'bold 14px Segoe UI';
+    ctx.fillText(label, x0 + 6, y0 + 18);
+
+    // Количество полос
+    const n = bars.length;
+    const gap = 3;
+    const barW = (w - gap * (n - 1)) / n;
+
+    // Горизонтальные сетки-уровни
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i < 5; i++) {
+      const yy = y0 + (h * i) / 5;
+      ctx.beginPath();
+      ctx.moveTo(x0, yy);
+      ctx.lineTo(x0 + w, yy);
+      ctx.stroke();
+    }
+
+    // Полоски
+    for (let j = 0; j < n; j++) {
+      const val = bars[j]; // 0..1
+      const bh = val * h;
+      const x = x0 + j * (barW + gap);
+      const y = y0 + h - bh;
+
+      // Свечение
+      const grad = ctx.createLinearGradient(0, y, 0, y0 + h);
+      grad.addColorStop(0, barColor(val));
+      grad.addColorStop(1, barColor(val * 0.6));
+      ctx.fillStyle = grad;
+
+      // Скруглённый прямоугольник
+      const radius = Math.min(barW / 2, 4);
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + barW - radius, y);
+      ctx.quadraticCurveTo(x + barW, y, x + barW, y + radius);
+      ctx.lineTo(x + barW, y0 + h);
+      ctx.lineTo(x, y0 + h);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+      ctx.fill();
+
+      // Пик-маркер (маленькая горизонтальная полоска сверху)
+      const peak = peaks[j];
+      const peakY = y0 + h - peak * h;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(x, peakY - 2, barW, 2);
+    }
+
+    ctx.restore();
+  }
+
+  let time = 0;
+  let lastTime = performance.now();
+
+  function animate(now) {
+    const dt = (now - lastTime) / 1000;
+    lastTime = now;
+    time += dt;
+
+    const i = +sI.value;
+    const k = +sK.value;
+    const d = +sD.value;
+
+    // Количество полос эквалайзера зависит от частоты дискретизации
+    // 4000 Гц → 12 полос, 48000 Гц → 32 полосы
+    const nBars = Math.round(12 + (d - 4000) / (48000 - 4000) * 20);
+
+    // Количество уровней квантования, которые реально отобразим
+    // При малом i полоски будут "ступенчатыми"
+    const displayLevels = Math.min(Math.pow(2, i), 64);
+
+    // Генерация целевых значений для каждого канала
+    const targetL = [];
+    const targetR = [];
+    for (let j = 0; j < nBars; j++) {
+      // Базовая форма: комбинация синусоид с разными частотами
+      const phase1 = time * 2 + j * 0.3;
+      const phase2 = time * 3.7 + j * 0.7;
+      const phase3 = time * 1.3 + j * 1.1;
+      let vL = 0.4 + 0.3 * Math.sin(phase1) + 0.2 * Math.sin(phase2) + 0.1 * Math.sin(phase3);
+      let vR = 0.4 + 0.3 * Math.sin(phase1 + 1.5) + 0.2 * Math.sin(phase2 + 2.1) + 0.1 * Math.sin(phase3 + 0.7);
+
+      // Огибающая: низкие частоты обычно выше
+      const freqFactor = 1 - (j / nBars) * 0.4;
+      vL *= freqFactor;
+      vR *= freqFactor;
+
+      // Квантование: приводим к одному из displayLevels уровней
+      vL = Math.round(vL * displayLevels) / displayLevels;
+      vR = Math.round(vR * displayLevels) / displayLevels;
+
+      vL = Math.max(0.02, Math.min(1, vL));
+      vR = Math.max(0.02, Math.min(1, vR));
+
+      targetL.push(vL);
+      targetR.push(vR);
+    }
+
+    // Инициализация массивов сглаживания
+    while (smoothL.length < nBars) smoothL.push(0.1);
+    while (smoothR.length < nBars) smoothR.push(0.1);
+    smoothL.length = nBars;
+    smoothR.length = nBars;
+
+    // Плавное приближение
+    const smoothK = 1 - Math.exp(-dt * 8);
+    for (let j = 0; j < nBars; j++) {
+      smoothL[j] += (targetL[j] - smoothL[j]) * smoothK;
+      smoothR[j] += (targetR[j] - smoothR[j]) * smoothK;
+    }
+
+    // Пики (медленно падают)
+    if (!animate.peaksL) animate.peaksL = new Array(nBars).fill(0);
+    if (!animate.peaksR) animate.peaksR = new Array(nBars).fill(0);
+    animate.peaksL.length = nBars;
+    animate.peaksR.length = nBars;
+    for (let j = 0; j < nBars; j++) {
+      if (smoothL[j] > animate.peaksL[j]) animate.peaksL[j] = smoothL[j];
+      else animate.peaksL[j] = Math.max(0, animate.peaksL[j] - dt * 0.5);
+
+      if (smoothR[j] > animate.peaksR[j]) animate.peaksR[j] = smoothR[j];
+      else animate.peaksR[j] = Math.max(0, animate.peaksR[j] - dt * 0.5);
+    }
+
+    // Очистка
+    const W = canvas.width;
+    const H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    // Рисуем эквалайзер(ы)
+    const margin = 20;
+    if (k === 1) {
+      drawEQ(margin, margin, W - margin * 2, H - margin * 2 - 20,
+             smoothL, animate.peaksL, 'МОНО (k=1)', '#81d4fa');
+    } else {
+      const halfW = (W - margin * 3) / 2;
+      drawEQ(margin, margin, halfW, H - margin * 2 - 20,
+             smoothL, animate.peaksL, 'КАНАЛ L', '#4facfe');
+      drawEQ(margin * 2 + halfW, margin, halfW, H - margin * 2 - 20,
+             smoothR, animate.peaksR, 'КАНАЛ R', '#43e97b');
+    }
+
+    // Подпись снизу: количество полос
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '12px Segoe UI';
+    ctx.fillText(`Полос спектра: ${nBars}  ·  Уровней квантования: ${Math.pow(2, i)}`,
+                 margin, H - 6);
+
+    requestAnimationFrame(animate);
+  }
+
+  [sI, sK, sD, sT].forEach(s => s.addEventListener('input', updateLabels));
+  updateLabels();
+  requestAnimationFrame(animate);
+</script>
+</body>
+</html>
